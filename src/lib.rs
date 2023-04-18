@@ -259,6 +259,10 @@ impl CanvasElement {
     }
   }
 
+  #[napi]
+  pub fn to_pdf(&self, env: Env) -> Result<JsBuffer> {
+  }
+
   #[napi(js_name = "toDataURLAsync")]
   pub fn to_data_url_async(
     &self,
@@ -447,6 +451,92 @@ pub struct SVGCanvas {
 
 #[napi]
 impl SVGCanvas {
+  #[napi(constructor)]
+  pub fn new(
+    mut env: Env,
+    mut this: This,
+    width: u32,
+    height: u32,
+    flag: SvgExportFlag,
+  ) -> Result<Self> {
+    let ctx = CanvasRenderingContext2D::into_instance(
+      CanvasRenderingContext2D {
+        context: Context::new_svg(width, height, flag.into(), ColorSpace::default())?,
+      },
+      env,
+    )?;
+    ctx.as_object(env).define_properties(&[
+      Property::new(FILL_STYLE_HIDDEN_NAME)?
+        .with_value(&env.create_string("#000")?)
+        .with_property_attributes(PropertyAttributes::Writable | PropertyAttributes::Configurable),
+      Property::new(STROKE_STYLE_HIDDEN_NAME)?
+        .with_value(&env.create_string("#000")?)
+        .with_property_attributes(PropertyAttributes::Writable | PropertyAttributes::Configurable),
+    ])?;
+    env.adjust_external_memory((width * height * 4) as i64)?;
+    this.define_properties(&[Property::new("ctx")?
+      .with_value(&ctx)
+      .with_property_attributes(PropertyAttributes::Default)])?;
+    Ok(Self { width, height, ctx })
+  }
+
+  #[napi]
+  pub fn get_context(
+    &mut self,
+    this: This,
+    context_type: String,
+    attrs: Option<CanvasRenderingContext2DAttributes>,
+  ) -> Result<Unknown> {
+    if context_type != "2d" {
+      return Err(Error::new(
+        Status::InvalidArg,
+        format!("{context_type} is not supported"),
+      ));
+    }
+    let context_2d = &mut self.ctx.context;
+    if !attrs.as_ref().and_then(|a| a.alpha).unwrap_or(true) {
+      let mut fill_paint = context_2d.fill_paint()?;
+      fill_paint.set_color(255, 255, 255, 255);
+      context_2d.alpha = false;
+      context_2d.surface.draw_rect(
+        0f32,
+        0f32,
+        self.width as f32,
+        self.height as f32,
+        &fill_paint,
+      );
+    }
+    let color_space = attrs
+      .and_then(|a| a.color_space)
+      .and_then(|cs| ColorSpace::from_str(&cs).ok())
+      .unwrap_or_default();
+    context_2d.color_space = color_space;
+    this.get_named_property("ctx")
+  }
+
+  #[napi]
+  pub fn get_content(&self, env: Env) -> Result<JsBuffer> {
+    let svg_data_stream = self.ctx.context.stream.as_ref().unwrap();
+    let svg_data = svg_data_stream.data(self.ctx.context.width, self.ctx.context.height);
+    unsafe {
+      env
+        .create_buffer_with_borrowed_data(svg_data.0.ptr, svg_data.0.size, svg_data, |d, _| {
+          mem::drop(d)
+        })
+        .map(|b| b.into_raw())
+    }
+  }
+}
+
+#[napi(js_name = "PDFCanvas")]
+pub struct PDFCanvas {
+  pub width: u32,
+  pub height: u32,
+  pub(crate) ctx: ClassInstance<CanvasRenderingContext2D>,
+}
+
+#[napi]
+impl PDFCanvas {
   #[napi(constructor)]
   pub fn new(
     mut env: Env,

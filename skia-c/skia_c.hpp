@@ -32,6 +32,7 @@
 #include <include/effects/SkTrimPathEffect.h>
 #include <include/effects/SkGradientShader.h>
 #include <include/svg/SkSVGCanvas.h>
+#include <include/docs/SkPDFDocument.h>
 #include <modules/skparagraph/include/FontCollection.h>
 #include <modules/skparagraph/include/Paragraph.h>
 #include <modules/skparagraph/include/ParagraphBuilder.h>
@@ -119,6 +120,13 @@ private:
 };
 
 struct skiac_svg_surface
+{
+  skiac_w_memory_stream *stream;
+  skiac_surface *surface;
+  skiac_canvas *canvas;
+};
+
+struct skiac_pdf_surface
 {
   skiac_w_memory_stream *stream;
   skiac_surface *surface;
@@ -219,6 +227,7 @@ extern "C"
   // Surface
   skiac_surface *skiac_surface_create_rgba_premultiplied(int width, int height, uint8_t cs);
   void skiac_surface_create_svg(skiac_svg_surface *c_surface, int width, int height, int alphaType, uint32_t flag, uint8_t cs);
+  void skiac_surface_create_pdf(skiac_pdf_surface *c_surface, int width, int height, int alphaType, uint32_t flag, uint8_t cs);
   skiac_surface *skiac_surface_create_rgba(int width, int height, uint8_t cs);
   void skiac_surface_destroy(skiac_surface *c_surface);
   skiac_surface *skiac_surface_copy_rgba(

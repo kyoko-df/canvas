@@ -125,6 +125,26 @@ extern "C"
     c_surface->canvas = reinterpret_cast<skiac_canvas *>(canvas.release());
   }
 
+  void skiac_surface_create_pdf(skiac_pdf_surface *c_surface, int w, int h, int alphaType, uint32_t flag, uint8_t cs)
+  {
+    auto w_stream = new SkDynamicMemoryWStream();
+
+    auto doc = SkPDF::MakeDocument(&stream);
+    auto canvas = doc->beginPage(w, h);
+    if (!canvas.get())
+    {
+      return;
+    }
+    auto surface = skiac_surface_create(w, h, (SkAlphaType)alphaType, cs);
+    if (!surface)
+    {
+      return;
+    }
+    c_surface->stream = reinterpret_cast<skiac_w_memory_stream *>(w_stream);
+    c_surface->surface = reinterpret_cast<skiac_surface *>(surface);
+    c_surface->canvas = reinterpret_cast<skiac_canvas *>(canvas.release());
+  }
+
   skiac_surface *skiac_surface_create_rgba_premultiplied(int width, int height, uint8_t cs)
   {
     return reinterpret_cast<skiac_surface *>(
